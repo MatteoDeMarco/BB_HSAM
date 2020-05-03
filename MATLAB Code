@@ -1,0 +1,64 @@
+# Preparatory Stages
+
+# Preprocessing of fMRI images completed
+# Calculation of first time derivatives (other 18 parameters in total) with ‘mp_diffpow24’ function
+# With MarsBaR, conversion of 'atlas.nii' used by CONN into 132 ROI .mat images
+# Extraction of all 132 vectors for each participant (named as 'a01', 'a02', 'a03'...)
+# Extraction of WM and CSF global signal (named as 'q01', 'q02', 'q03'...)
+# Use of Excel software: combination into  single .xlsx first, then into .txt file of all 24 motion parameters
+# Using the 'import' function in MATLAB, conversion of motion parameters into matrices (named as 'p01', 'p02', 'p03'...)
+# Merging of each 'q01', 'q02', 'q03', etc. into its respective 'p01', 'p02', 'p03', etc. in order to obtain individual 200 (lines) x 26 (columes) volume-by-nuisance vector matrices.
+
+
+# Processing and Analysis
+
+# Calculation of partial correlation coefficients within each individual matrix, controlling for motion and global WM and CSF signal.
+Coeff_a01 = partialcorr(a01,p01)
+Coeff_a02 = partialcorr(a02,p02)
+Coeff_a03 = partialcorr(a03,p03)
+# etc.
+
+# Computation and visualisation of average correlation for controls (Figure 4a)
+Controls_averaged = (Coeff_a02 + Coeff_a03 + Coeff_a04 + Coeff_a05 + Coeff_a06 + Coeff_a07 + Coeff_a08 + Coeff_a09 + Coeff_a10 + Coeff_a11 + Coeff_a12 + Coeff_a13 + Coeff_a14 + Coeff_a15 + Coeff_a16 + Coeff_a17) / 16
+imagesc(Controls_averaged)
+
+# Conversion of each correlation matrix into a z-score matrix using Fisher's r-to-z, aka Inverse hyperbolic tangent function, modified to avoid the creation of complex values (e.g., 2.346 + 0.0000i)
+z_Coeff_a01 = real(atanh(Coeff_a01))
+z_Coeff_a02 = real(atanh(Coeff_a02))
+z_Coeff_a03 = real(atanh(Coeff_a03))
+# etc.
+
+# Reshaping of each 132x132 matrix of z scores into a 1 (line) x 17424 (columns) matrix
+z_Coeff_a01_reshaped = reshape(z_Coeff_a01,[1,17424])
+z_Coeff_a02_reshaped = reshape(z_Coeff_a02,[1,17424])
+z_Coeff_a03_reshaped = reshape(z_Coeff_a03,[1,17424])
+# etc.
+
+# Concatenation of all all reshaped matrices for the controls
+z_Controls_reshaped_concatenated = cat(2,[z_Coeff_a02_reshaped; z_Coeff_a03_reshaped; z_Coeff_a04_reshaped; z_Coeff_a05_reshaped; z_Coeff_a06_reshaped; z_Coeff_a07_reshaped; z_Coeff_a08_reshaped; z_Coeff_a09_reshaped; z_Coeff_a10_reshaped; z_Coeff_a11_reshaped; z_Coeff_a12_reshaped; z_Coeff_a13_reshaped; z_Coeff_a14_reshaped; z_Coeff_a15_reshaped; z_Coeff_a16_reshaped; z_Coeff_a17_reshaped])
+
+# Comparison of the 1x17424 matrix for BB and the 16x17424 matrix for the controls via the Crawford-Howell modified t-test. Numerator and Denominator are computed separately following the formula.
+Numerator_Crawford_Howell = z_Coeff_a01_reshaped - mean(z_Controls_reshaped_concatenated)
+Denominator_Crawford_Howell = std(z_Controls_reshaped_concatenated) * sqrt(17/16)
+
+#'NaN' are replaced with '1' to avoid impossible divisions for '0' or for 'NaN'
+Denominator_Crawford_Howell(isnan(Denominator_Crawford_Howell))=1
+Numerator_Crawford_Howell(isnan(Numerator_Crawford_Howell))=1
+
+# Numerator and Denominator are thus divided to obtain the t-score
+t_Crawford_Howell = Numerator_Crawford_Howell./Denominator_Crawford_Howell
+
+#Reshaping of the t-matrix
+t_Crawford_Howell_reshaped = reshape(t_Crawford_Howell,[132,132])
+
+#Transformation and visualisation of t-values into p-values
+p_t_Crawford_Howell_reshaped = 1-tcdf(t_Crawford_Howell_reshaped,15)
+p_t_Crawford_Howell_reshaped_binary_dot001_uncorrected = p_t_Crawford_Howell_reshaped < 0.001
+#Figure 2a
+imagesc(p_t_Crawford_Howell_reshaped)
+#Figure 2b
+imagesc(p_t_Crawford_Howell_reshaped_binary_dot001_uncorrected)
+
+
+
+
